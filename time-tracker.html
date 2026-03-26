@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Time Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0f11; --surface: #17191d; --surface2: #1f2228;
+    --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.13);
+    --text: #f0f0ee; --muted: #7a7d85;
+    --accent: #d4f170; --accent-dim: rgba(212,241,112,0.12); --accent-dim2: rgba(212,241,112,0.22);
+    --warn: #f1a450; --warn-dim: rgba(241,164,80,0.12);
+    --danger: #f17070; --danger-dim: rgba(241,112,112,0.12);
+    --green: #70d4a0; --green-dim: rgba(112,212,160,0.12);
+    --radius: 14px; --radius-sm: 8px;
+    --mono: 'DM Mono', monospace; --sans: 'DM Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 110px; }
+
+  .header { padding: 52px 20px 16px; position: relative; }
+  .header-label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+  .header-title { font-size: 26px; font-weight: 600; letter-spacing: -0.5px; }
+  .header-period { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .settings-btn { position: absolute; top: 52px; right: 20px; background: var(--surface2); border: 0.5px solid var(--border2); border-radius: 50%; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; }
+
+  .nav { display: flex; gap: 6px; padding: 0 20px 18px; }
+  .nav-btn { flex: 1; padding: 9px 0; background: var(--surface); border: 0.5px solid var(--border); border-radius: 10px; font-family: var(--sans); font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; text-align: center; transition: all 0.15s; }
+  .nav-btn.active { background: var(--accent-dim2); border-color: var(--accent); color: var(--accent); }
+
+  .section { display: none; padding: 0 20px; }
+  .section.active { display: block; }
+
+  /* Punch */
+  .punch-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 14px; }
+  .punch-status { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .punch-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex-shrink: 0; transition: background 0.3s; }
+  .punch-dot.in { background: var(--accent); box-shadow: 0 0 8px rgba(212,241,112,0.5); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.5} }
+  .punch-status-text { font-size: 14px; color: var(--muted); flex: 1; }
+  .punch-status-text strong { color: var(--text); font-weight: 500; }
+  .punch-elapsed { font-family: var(--mono); font-size: 13px; color: var(--accent); }
+  .punch-btn { width: 100%; padding: 16px; border: none; border-radius: var(--radius-sm); font-family: var(--sans); font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.15s; margin-bottom: 10px; }
+  .punch-btn:active { transform: scale(0.98); opacity: 0.9; }
+  .punch-btn.in { background: var(--accent); color: #0e0f11; }
+  .punch-btn.out { background: var(--warn-dim); border: 0.5px solid rgba(241,164,80,0.4); color: var(--warn); }
+
+  .punch-today { border-top: 0.5px solid var(--border); padding-top: 14px; }
+  .punch-today-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; margin-bottom: 10px; }
+  .punch-pair { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; background: var(--surface2); border-radius: var(--radius-sm); margin-bottom: 6px; }
+  .punch-pair-times { font-family: var(--mono); font-size: 13px; }
+  .punch-pair-right { display: flex; align-items: center; gap: 8px; }
+  .punch-pair-dur { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+  .punch-pair-del { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 0 0 0 6px; line-height: 1; }
+  .punch-pair.ghost { opacity: 0.45; }
+  .punch-today-total { display: flex; justify-content: space-between; font-size: 13px; padding: 10px 0 0; border-top: 0.5px solid var(--border); margin-top: 4px; }
+  .punch-today-total span { color: var(--muted); }
+  .punch-today-total strong { font-family: var(--mono); color: var(--accent); font-weight: 500; }
+  .punch-save-btn { width: 100%; margin-top: 10px; padding: 12px; background: var(--accent-dim); border: 0.5px solid rgba(212,241,112,0.3); border-radius: var(--radius-sm); font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--accent); cursor: pointer; }
+  .punch-save-btn:active { opacity: 0.8; }
+  .punch-empty { font-size: 13px; color: var(--muted); text-align: center; padding: 8px 0 4px; }
+
+  /* Divider */
+  .divider { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .divider-line { flex: 1; height: 0.5px; background: var(--border); }
+  .divider-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; }
+
+  /* Manual log form */
+  .log-form { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; }
+  .form-row { display: flex; gap: 10px; margin-bottom: 12px; }
+  .form-group { flex: 1; }
+  .form-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; margin-bottom: 6px; display: block; }
+  .form-input { width: 100%; background: var(--surface2); border: 0.5px solid var(--border2); border-radius: var(--radius-sm); padding: 11px 12px; font-family: var(--mono); font-size: 15px; color: var(--text); outline: none; -webkit-appearance: none; }
+  .form-input:focus { border-color: var(--accent); }
+  .btn-add { width: 100%; padding: 13px; background: var(--surface2); border: 0.5px solid var(--border2); border-radius: var(--radius-sm); font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--text); cursor: pointer; }
+  .btn-add:active { opacity: 0.8; }
+
+  /* Entries */
+  .entries-title { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; margin-bottom: 10px; }
+  .entry { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 13px 14px; margin-bottom: 8px; }
+  .entry-header { display: flex; align-items: flex-start; justify-content: space-between; }
+  .entry-date { font-size: 13px; font-weight: 500; }
+  .entry-ot-badge { font-family: var(--mono); font-size: 10px; color: var(--warn); margin-top: 2px; }
+  .entry-right { display: flex; align-items: center; gap: 6px; }
+  .entry-hours { font-family: var(--mono); font-size: 16px; font-weight: 500; color: var(--accent); }
+  .entry-del { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 0 0 0 6px; line-height: 1; }
+  .entry-chips { margin-top: 8px; padding-top: 8px; border-top: 0.5px solid var(--border); display: flex; flex-wrap: wrap; gap: 5px; }
+  .chip { font-family: var(--mono); font-size: 11px; background: var(--surface2); border-radius: 4px; padding: 3px 7px; color: var(--muted); }
+  .empty-state { text-align: center; padding: 36px 20px; color: var(--muted); font-size: 14px; }
+  .empty-icon { font-size: 30px; margin-bottom: 10px; }
+
+  /* Overview */
+  .progress-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 14px; }
+  .progress-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+  .progress-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+  .progress-val { font-family: var(--mono); font-size: 28px; font-weight: 500; letter-spacing: -0.5px; }
+  .progress-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .bar-wrap { background: var(--surface2); border-radius: 100px; height: 6px; margin-bottom: 10px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 100px; background: var(--accent); transition: width 0.4s; }
+  .bar-fill.ot { background: var(--warn); }
+  .bar-ticks { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10px; color: var(--muted); }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .stat { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 14px; }
+  .stat.warn { background: var(--warn-dim); border-color: rgba(241,164,80,0.25); }
+  .stat.green { background: var(--green-dim); border-color: rgba(112,212,160,0.25); }
+  .stat.accent { background: var(--accent-dim); border-color: rgba(212,241,112,0.25); }
+  .stat-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; margin-bottom: 6px; }
+  .stat.warn .stat-label { color: rgba(241,164,80,0.6); }
+  .stat.green .stat-label { color: rgba(112,212,160,0.6); }
+  .stat.accent .stat-label { color: rgba(212,241,112,0.6); }
+  .stat-val { font-family: var(--mono); font-size: 20px; font-weight: 500; }
+  .stat.warn .stat-val { color: var(--warn); }
+  .stat.green .stat-val { color: var(--green); }
+  .stat.accent .stat-val { color: var(--accent); }
+  .stat-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* Pay */
+  .pay-big { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 24px 20px; margin-bottom: 14px; text-align: center; }
+  .pay-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; margin-bottom: 10px; }
+  .pay-amount { font-family: var(--mono); font-size: 44px; font-weight: 500; letter-spacing: -1px; color: var(--accent); }
+  .pay-sub { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .bdown-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; }
+  .bdown-title { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; margin-bottom: 14px; }
+  .bdown-row { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 0.5px solid var(--border); font-size: 14px; }
+  .bdown-row:last-child { border-bottom: none; }
+  .bdown-label { color: var(--muted); }
+  .bdown-val { font-family: var(--mono); font-weight: 500; }
+  .bdown-val.accent { color: var(--accent); }
+  .bdown-val.warn { color: var(--warn); }
+  .bdown-val.green { color: var(--green); }
+  .proj-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; }
+  .proj-title { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; margin-bottom: 14px; }
+  .proj-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .proj-row label { font-size: 13px; color: var(--muted); min-width: 120px; }
+  .proj-row input[type=range] { flex: 1; -webkit-appearance: none; height: 4px; background: var(--surface2); border-radius: 2px; outline: none; }
+  .proj-row input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 2px solid var(--bg); }
+  .proj-val { font-family: var(--mono); font-size: 13px; font-weight: 500; min-width: 36px; text-align: right; color: var(--accent); }
+  .proj-result { display: flex; justify-content: space-between; font-size: 14px; margin-top: 12px; padding-top: 12px; border-top: 0.5px solid var(--border); }
+  .proj-result-label { color: var(--muted); }
+  .proj-result-val { font-family: var(--mono); font-weight: 500; color: var(--green); }
+
+  /* Modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: flex-end; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 0.5px solid var(--border2); border-radius: 20px 20px 0 0; padding: 24px 20px 44px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; }
+  .modal-handle { width: 36px; height: 4px; background: var(--border2); border-radius: 2px; margin: 0 auto 20px; }
+  .modal-title { font-size: 17px; font-weight: 600; margin-bottom: 20px; }
+  .modal-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; margin-bottom: 6px; display: block; }
+  .modal-input, .modal-select { width: 100%; background: var(--surface2); border: 0.5px solid var(--border2); border-radius: var(--radius-sm); padding: 11px 12px; font-family: var(--mono); font-size: 15px; color: var(--text); outline: none; -webkit-appearance: none; margin-bottom: 14px; }
+  .modal-input:focus, .modal-select:focus { border-color: var(--accent); }
+  .modal-hint { font-size: 12px; color: var(--muted); margin-top: -10px; margin-bottom: 14px; line-height: 1.5; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 6px; }
+  .btn-cancel { flex: 1; padding: 13px; background: var(--surface2); border: 0.5px solid var(--border2); border-radius: var(--radius-sm); font-family: var(--sans); font-size: 14px; font-weight: 500; color: var(--muted); cursor: pointer; }
+  .btn-save { flex: 2; padding: 13px; background: var(--accent); border: none; border-radius: var(--radius-sm); font-family: var(--sans); font-size: 14px; font-weight: 600; color: #0e0f11; cursor: pointer; }
+
+  .toast { position: fixed; bottom: 110px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface2); border: 0.5px solid var(--border2); border-radius: 100px; padding: 9px 18px; font-size: 13px; font-weight: 500; opacity: 0; transition: all 0.25s; z-index: 200; white-space: nowrap; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-label">Pay Period</div>
+  <div class="header-title">Time Tracker</div>
+  <div class="header-period" id="header-period">—</div>
+  <div class="settings-btn" onclick="openSettings()">⚙️</div>
+</div>
+
+<div class="nav">
+  <button class="nav-btn active" onclick="showTab('punch',this)">Punch</button>
+  <button class="nav-btn" onclick="showTab('overview',this)">Overview</button>
+  <button class="nav-btn" onclick="showTab('pay',this)">Pay</button>
+</div>
+
+<!-- PUNCH -->
+<div class="section active" id="tab-punch">
+  <div class="punch-card">
+    <div class="punch-status">
+      <div class="punch-dot" id="pdot"></div>
+      <div class="punch-status-text" id="pstatus">Not punched in</div>
+      <div class="punch-elapsed" id="pelapsed"></div>
+    </div>
+    <button class="punch-btn in" id="pmain" onclick="togglePunch()">Punch In</button>
+    <div class="punch-today">
+      <div class="punch-today-label" id="punch-date-label">Today's punches</div>
+      <div id="ppairs"></div>
+      <div class="punch-today-total" id="ptotal" style="display:none">
+        <span>Total today</span>
+        <strong id="ptotal-val">0.00 hrs</strong>
+      </div>
+      <button class="punch-save-btn" id="psave" onclick="saveToday()" style="display:none">Save today to log →</button>
+    </div>
+  </div>
+
+  <div class="divider">
+    <div class="divider-line"></div>
+    <div class="divider-label">or add manually</div>
+    <div class="divider-line"></div>
+  </div>
+
+  <div class="log-form">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Date</label>
+        <input class="form-input" type="date" id="manual-date">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Hours</label>
+        <input class="form-input" type="number" id="manual-h" value="8" min="0" max="24" step="0.25">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Minutes</label>
+        <input class="form-input" type="number" id="manual-m" value="30" min="0" max="59">
+      </div>
+    </div>
+    <button class="btn-add" onclick="logManual()">Add to Log</button>
+  </div>
+
+  <div class="entries-title" id="entries-count">Entries this period</div>
+  <div id="entries-list"></div>
+</div>
+
+<!-- OVERVIEW -->
+<div class="section" id="tab-overview">
+  <div class="progress-card">
+    <div class="progress-header">
+      <div>
+        <div class="progress-label">Hours this period</div>
+        <div class="progress-val" id="ov-worked">0.0</div>
+        <div class="progress-sub" id="ov-of">of 80 regular hours</div>
+      </div>
+      <div style="text-align:right">
+        <div class="progress-label">Remaining</div>
+        <div class="progress-val" id="ov-rem">80.0</div>
+        <div class="progress-sub" id="ov-rem-sub">hrs to 80</div>
+      </div>
+    </div>
+    <div class="bar-wrap"><div class="bar-fill" id="ov-bar" style="width:0%"></div></div>
+    <div class="bar-ticks"><span>0</span><span>20</span><span>40</span><span>60</span><span>80+</span></div>
+  </div>
+  <div class="stat-grid">
+    <div class="stat"><div class="stat-label">Regular hrs</div><div class="stat-val" id="ov-reg-hrs">0.0</div><div class="stat-sub" id="ov-reg-pay">$0.00</div></div>
+    <div class="stat warn"><div class="stat-label">Overtime hrs</div><div class="stat-val" id="ov-ot-hrs">0.0</div><div class="stat-sub" id="ov-ot-pay">$0.00</div></div>
+    <div class="stat green"><div class="stat-label">Est. paycheck</div><div class="stat-val" id="ov-check">$0</div><div class="stat-sub">this period</div></div>
+    <div class="stat accent"><div class="stat-label">Daily avg</div><div class="stat-val" id="ov-avg">—</div><div class="stat-sub" id="ov-days">0 days</div></div>
+  </div>
+  <div class="progress-card">
+    <div class="progress-label" style="margin-bottom:10px">Pay period progress</div>
+    <div class="bar-wrap" style="margin-bottom:8px"><div class="bar-fill" id="ov-day-bar" style="width:0%"></div></div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);font-family:var(--mono)">
+      <span id="ov-pstart">—</span><span id="ov-pday">—</span><span id="ov-pend">—</span>
+    </div>
+  </div>
+</div>
+
+<!-- PAY -->
+<div class="section" id="tab-pay">
+  <div class="pay-big">
+    <div class="pay-label">Estimated paycheck</div>
+    <div class="pay-amount" id="pay-gross">$0.00</div>
+    <div class="pay-sub" id="pay-sub-hrs">—</div>
+  </div>
+  <div class="bdown-card">
+    <div class="bdown-title">Earnings breakdown</div>
+    <div class="bdown-row"><span class="bdown-label">Regular hours</span><span class="bdown-val accent" id="b-reg-hrs">—</span></div>
+    <div class="bdown-row"><span class="bdown-label">Regular pay</span><span class="bdown-val" id="b-reg-pay">—</span></div>
+    <div class="bdown-row"><span class="bdown-label">Overtime hours</span><span class="bdown-val warn" id="b-ot-hrs">—</span></div>
+    <div class="bdown-row"><span class="bdown-label">OT pay (1.5×)</span><span class="bdown-val warn" id="b-ot-pay">—</span></div>
+    <div class="bdown-row"><span class="bdown-label">Hourly rate</span><span class="bdown-val" id="b-rate">—</span></div>
+    <div class="bdown-row"><span class="bdown-label">OT rate</span><span class="bdown-val" id="b-ot-rate">—</span></div>
+    <div class="bdown-row" style="padding-top:12px;margin-top:4px;border-top:0.5px solid var(--border2)">
+      <span style="font-weight:500">Total gross</span><span class="bdown-val green" id="b-total">—</span>
+    </div>
+  </div>
+  <div class="proj-card">
+    <div class="proj-title">Annual projection</div>
+    <div class="proj-row"><label>OT hrs / day</label><input type="range" id="proj-ot" min="0" max="3" step="0.25" value="0.5" oninput="updateProjection()"><span class="proj-val" id="proj-ot-v">0.5</span></div>
+    <div class="proj-row"><label>Days / week</label><input type="range" id="proj-days" min="4" max="7" step="1" value="5" oninput="updateProjection()"><span class="proj-val" id="proj-days-v">5</span></div>
+    <div class="proj-result"><span class="proj-result-label">Projected annual</span><span class="proj-result-val" id="proj-annual">—</span></div>
+  </div>
+</div>
+
+<!-- Settings -->
+<div class="modal-overlay" id="modal" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Settings</div>
+    <label class="modal-label">Hourly rate ($)</label>
+    <input class="modal-input" type="number" id="s-rate" step="0.01" value="27.53">
+    <label class="modal-label">Regular hours per pay period</label>
+    <input class="modal-input" type="number" id="s-reghrs" value="80">
+    <label class="modal-label">Pay period length (days)</label>
+    <input class="modal-input" type="number" id="s-len" value="14">
+    <label class="modal-label">Pay period start date</label>
+<input class="modal-input" type="date" id="s-startdate">
+
+<div class="modal-hint">
+  This is the exact start date of a pay period. Future periods are calculated automatically.
+</div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveSettings()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ──
+let S = { 
+  rate:27.53, 
+  regularHours:80, 
+  periodLength:14, 
+  periodStartAnchor:"2026-01-05" // ← NEW
+};
+let entries = [];
+let punchIn = null;    // timestamp ms of current punch-in, or null
+let todayPairs = [];   // [{in:ms, out:ms}] completed pairs for today
+let ticker = null;
+
+// ── Boot ──
+function init() {
+  const ss = localStorage.getItem('tt_s2');
+  if (ss) S = {...S, ...JSON.parse(ss)};
+  const pi = localStorage.getItem('tt_pi');
+  if (pi) punchIn = parseInt(pi);
+  const tp = localStorage.getItem('tt_tp_' + todayKey());
+  if (tp) todayPairs = JSON.parse(tp);
+  loadEntries();
+  document.getElementById('manual-date').value = todayKey();
+  renderAll();
+  if (punchIn) startTicker();
+}
+
+// ── Dates ──
+function todayKey() { return fmtDate(new Date()); }
+function fmtDate(d) { return d.toISOString().split('T')[0]; }
+function parseDate(s) { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function dispDate(s) { return parseDate(s).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }
+function dispDateLong(s) { return parseDate(s).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+
+function getPeriodStart() {
+  const today = new Date(); 
+  today.setHours(0,0,0,0);
+
+  const anchor = parseDate(S.periodStartAnchor);
+  anchor.setHours(0,0,0,0);
+
+  const diffDays = Math.floor((today - anchor) / 86400000);
+  const periodsPassed = Math.floor(diffDays / S.periodLength);
+
+  const start = new Date(anchor);
+  start.setDate(anchor.getDate() + periodsPassed * S.periodLength);
+
+  return fmtDate(start);
+}
+function getPeriodEnd() {
+  const s = parseDate(getPeriodStart());
+  s.setDate(s.getDate() + S.periodLength - 1);
+  return fmtDate(s);
+}
+
+// ── Storage ──
+function loadEntries() {
+  const raw = localStorage.getItem('tt_e_' + getPeriodStart());
+  entries = raw ? JSON.parse(raw) : [];
+}
+function saveEntries() { localStorage.setItem('tt_e_' + getPeriodStart(), JSON.stringify(entries)); }
+function saveTodayPairs() { localStorage.setItem('tt_tp_' + todayKey(), JSON.stringify(todayPairs)); }
+
+// ── Time helpers ──
+function fmtTime(ms) {
+  const d = new Date(ms);
+  let h = d.getHours(), m = d.getMinutes();
+  const ap = h >= 12 ? 'pm' : 'am';
+  h = h % 12 || 12;
+  return h + ':' + String(m).padStart(2,'0') + ap;
+}
+function fmtElapsed(ms) {
+  const s = Math.floor(ms/1000), h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  return h > 0 ? h+'h '+String(m).padStart(2,'0')+'m' : m+'m '+String(sec).padStart(2,'0')+'s';
+}
+function pairsHours(pairs) { return pairs.reduce((a,p)=>a+(p.out-p.in)/3600000,0); }
+
+// ── Punch ──
+function togglePunch() {
+  const now = Date.now();
+  if (!punchIn) {
+    punchIn = now;
+    localStorage.setItem('tt_pi', punchIn);
+    startTicker();
+    showToast('Punched in at ' + fmtTime(now));
+  } else {
+    todayPairs.push({in:punchIn, out:now});
+    saveTodayPairs();
+    const dur = ((now - punchIn) / 3600000).toFixed(2);
+    punchIn = null;
+    localStorage.removeItem('tt_pi');
+    stopTicker();
+    showToast('Punched out — ' + dur + ' hrs this stretch');
+  }
+  renderPunch();
+}
+
+function deletePair(i) {
+  todayPairs.splice(i,1);
+  saveTodayPairs();
+  renderPunch();
+}
+
+function saveToday() {
+  const hrs = pairsHours(todayPairs);
+  if (hrs <= 0) { showToast('Nothing to save'); return; }
+  const d = todayKey(), ps = getPeriodStart(), pe = getPeriodEnd();
+  if (d < ps || d > pe) { showToast('Today is outside current pay period'); return; }
+  entries = entries.filter(e => e.date !== d);
+  entries.push({
+    id: Date.now().toString(), date: d, hours: hrs,
+    punches: todayPairs.map(p => ({in:fmtTime(p.in), out:fmtTime(p.out)}))
+  });
+  saveEntries();
+  todayPairs = []; saveTodayPairs();
+  renderAll();
+  showToast('Saved ' + hrs.toFixed(2) + ' hrs for today');
+}
+
+function startTicker() {
+  if (ticker) clearInterval(ticker);
+  ticker = setInterval(updateElapsed, 1000);
+  updateElapsed();
+}
+function stopTicker() { if(ticker){clearInterval(ticker);ticker=null;} document.getElementById('pelapsed').textContent=''; }
+function updateElapsed() {
+  if (!punchIn) return;
+  document.getElementById('pelapsed').textContent = fmtElapsed(Date.now() - punchIn);
+}
+
+function renderPunch() {
+  const isPunchedIn = !!punchIn;
+  document.getElementById('pdot').className = 'punch-dot' + (isPunchedIn ? ' in' : '');
+  document.getElementById('pstatus').innerHTML = isPunchedIn
+    ? 'Punched in since <strong>' + fmtTime(punchIn) + '</strong>'
+    : 'Not punched in';
+  const btn = document.getElementById('pmain');
+  btn.textContent = isPunchedIn ? 'Punch Out' : 'Punch In';
+  btn.className = 'punch-btn ' + (isPunchedIn ? 'out' : 'in');
+  if (!isPunchedIn) document.getElementById('pelapsed').textContent = '';
+
+  // Date label
+  const today = new Date();
+  document.getElementById('punch-date-label').textContent =
+    today.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+
+  const pairsEl = document.getElementById('ppairs');
+  const totalEl = document.getElementById('ptotal');
+  const saveEl = document.getElementById('psave');
+
+  if (todayPairs.length === 0 && !isPunchedIn) {
+    pairsEl.innerHTML = '<div class="punch-empty">No punches yet today</div>';
+    totalEl.style.display = 'none'; saveEl.style.display = 'none';
+    return;
+  }
+
+  let html = '';
+  todayPairs.forEach((p,i) => {
+    const dur = ((p.out-p.in)/3600000).toFixed(2);
+    html += `<div class="punch-pair">
+      <div class="punch-pair-times">${fmtTime(p.in)} → ${fmtTime(p.out)}</div>
+      <div class="punch-pair-right">
+        <div class="punch-pair-dur">${dur}h</div>
+        <button class="punch-pair-del" onclick="deletePair(${i})">×</button>
+      </div>
+    </div>`;
+  });
+  if (isPunchedIn) {
+    html += `<div class="punch-pair ghost">
+      <div class="punch-pair-times">${fmtTime(punchIn)} → now</div>
+      <div class="punch-pair-dur">in progress</div>
+    </div>`;
+  }
+  pairsEl.innerHTML = html;
+
+  const total = pairsHours(todayPairs);
+  totalEl.style.display = 'flex';
+  document.getElementById('ptotal-val').textContent = total.toFixed(2) + ' hrs';
+  saveEl.style.display = todayPairs.length > 0 ? 'block' : 'none';
+}
+
+// ── Manual log ──
+function logManual() {
+  const date = document.getElementById('manual-date').value;
+  const h = parseFloat(document.getElementById('manual-h').value)||0;
+  const m = parseInt(document.getElementById('manual-m').value)||0;
+  const hours = h + m/60;
+  if (!date) { showToast('Enter a date'); return; }
+  if (hours <= 0) { showToast('Hours must be > 0'); return; }
+  const ps=getPeriodStart(), pe=getPeriodEnd();
+  if (date < ps || date > pe) { showToast('Date outside current pay period'); return; }
+  entries = entries.filter(e => e.date !== date);
+  entries.push({id:Date.now().toString(), date, hours, punches:[]});
+  saveEntries();
+  renderAll();
+  showToast('Added ' + hours.toFixed(2) + ' hrs for ' + dispDate(date));
+}
+
+function deleteEntry(id) {
+  entries = entries.filter(e=>e.id!==id);
+  saveEntries(); renderAll();
+  showToast('Entry removed');
+}
+
+// ── Calc ──
+function calc() {
+  const total = entries.reduce((s,e)=>s+e.hours,0);
+  const reg = Math.min(total, S.regularHours);
+  const ot = Math.max(0, total - S.regularHours);
+  const otRate = S.rate * 1.5;
+  return { total, reg, ot, otRate, regPay:reg*S.rate, otPay:ot*otRate, gross:reg*S.rate+ot*otRate };
+}
+
+// ── Render ──
+function renderAll() {
+  const ps = getPeriodStart(), pe = getPeriodEnd();
+  document.getElementById('header-period').textContent = dispDate(ps) + ' – ' + dispDate(pe);
+  renderPunch();
+  renderEntries();
+  renderOverview();
+  renderPay();
+  updateProjection();
+}
+
+function renderEntries() {
+  const list = document.getElementById('entries-list');
+  document.getElementById('entries-count').textContent = entries.length + ' entr' + (entries.length===1?'y':'ies') + ' this period';
+  if (!entries.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">⏱</div>No entries yet.<br>Punch in or add manually.</div>';
+    return;
+  }
+  let cum=0; const cumMap={};
+  [...entries].sort((a,b)=>a.date.localeCompare(b.date)).forEach(e=>{cum+=e.hours;cumMap[e.id]=cum;});
+  list.innerHTML = [...entries].sort((a,b)=>b.date.localeCompare(a.date)).map(e=>{
+    const ot = Math.max(0, cumMap[e.id] - S.regularHours);
+    const chips = e.punches&&e.punches.length
+      ? '<div class="entry-chips">'+e.punches.map(p=>`<span class="chip">${p.in}→${p.out}</span>`).join('')+'</div>'
+      : '';
+    return `<div class="entry">
+      <div class="entry-header">
+        <div><div class="entry-date">${dispDateLong(e.date)}</div>${ot>0?'<div class="entry-ot-badge">+'+ot.toFixed(2)+'h OT</div>':''}</div>
+        <div class="entry-right">
+          <div class="entry-hours">${e.hours.toFixed(2)}h</div>
+          <button class="entry-del" onclick="deleteEntry('${e.id}')">×</button>
+        </div>
+      </div>${chips}
+    </div>`;
+  }).join('');
+}
+
+function renderOverview() {
+  const c = calc(), rh = S.regularHours;
+  const barPct = Math.min(100,(c.total/rh)*100);
+  const bar = document.getElementById('ov-bar');
+  bar.style.width = barPct+'%';
+  bar.className = 'bar-fill'+(c.ot>0?' ot':'');
+  document.getElementById('ov-worked').textContent = c.total.toFixed(1);
+  document.getElementById('ov-of').textContent = 'of '+rh+' regular hours';
+  const rem = Math.max(0,rh-c.total);
+  document.getElementById('ov-rem').textContent = rem>0?rem.toFixed(1):'+'+c.ot.toFixed(1);
+  document.getElementById('ov-rem-sub').textContent = rem>0?'hrs remaining':'hrs overtime';
+  document.getElementById('ov-reg-hrs').textContent = c.reg.toFixed(1);
+  document.getElementById('ov-reg-pay').textContent = '$'+c.regPay.toFixed(2);
+  document.getElementById('ov-ot-hrs').textContent = c.ot.toFixed(1);
+  document.getElementById('ov-ot-pay').textContent = '$'+c.otPay.toFixed(2);
+  document.getElementById('ov-check').textContent = '$'+Math.round(c.gross);
+  const days=entries.length;
+  document.getElementById('ov-avg').textContent = days?(c.total/days).toFixed(1)+'h':'—';
+  document.getElementById('ov-days').textContent = days+' day'+(days!==1?'s':'')+' logged';
+  const today=new Date();today.setHours(0,0,0,0);
+  const start=parseDate(getPeriodStart());
+  const daysPassed=Math.min(Math.max(0,Math.round((today-start)/86400000)+1),S.periodLength);
+  document.getElementById('ov-day-bar').style.width = Math.min(100,(daysPassed/S.periodLength)*100)+'%';
+  document.getElementById('ov-pstart').textContent = dispDate(getPeriodStart());
+  document.getElementById('ov-pend').textContent = dispDate(getPeriodEnd());
+  document.getElementById('ov-pday').textContent = 'Day '+daysPassed+' of '+S.periodLength;
+}
+
+function renderPay() {
+  const c = calc();
+  document.getElementById('pay-gross').textContent = '$'+c.gross.toFixed(2);
+  document.getElementById('pay-sub-hrs').textContent = c.total.toFixed(1)+' hrs logged this period';
+  document.getElementById('b-reg-hrs').textContent = c.reg.toFixed(1)+' hrs';
+  document.getElementById('b-reg-pay').textContent = '$'+c.regPay.toFixed(2);
+  document.getElementById('b-ot-hrs').textContent = c.ot.toFixed(1)+' hrs';
+  document.getElementById('b-ot-pay').textContent = '$'+c.otPay.toFixed(2);
+  document.getElementById('b-rate').textContent = '$'+S.rate.toFixed(2);
+  document.getElementById('b-ot-rate').textContent = '$'+(S.rate*1.5).toFixed(2);
+  document.getElementById('b-total').textContent = '$'+c.gross.toFixed(2);
+}
+
+function updateProjection() {
+  const ot=parseFloat(document.getElementById('proj-ot').value);
+  const dw=parseInt(document.getElementById('proj-days').value);
+  document.getElementById('proj-ot-v').textContent=ot.toFixed(2);
+  document.getElementById('proj-days-v').textContent=dw;
+  const annual = S.regularHours*26*S.rate + ot*dw*52*S.rate*1.5;
+  document.getElementById('proj-annual').textContent='$'+Math.round(annual).toLocaleString();
+}
+
+// ── Settings ──
+function openSettings() {
+  document.getElementById('s-rate').value=S.rate;
+  document.getElementById('s-reghrs').value=S.regularHours;
+  document.getElementById('s-len').value=S.periodLength;
+document.getElementById('s-startdate').value = S.periodStartAnchor;
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+function closeModalOutside(e) { if(e.target===document.getElementById('modal'))closeModal(); }
+function saveSettings() {
+  S.rate=parseFloat(document.getElementById('s-rate').value)||27.53;
+  S.regularHours=parseInt(document.getElementById('s-reghrs').value)||80;
+  S.periodLength=parseInt(document.getElementById('s-len').value)||14;
+const newAnchor = document.getElementById('s-startdate').value;
+if (!newAnchor) {
+  showToast('Please select a start date');
+  return;
+}
+
+if (parseDate(newAnchor) > new Date()) {
+  showToast('Start date cannot be in the future');
+  return;
+}
+
+S.periodStartAnchor = newAnchor;
+  localStorage.setItem('tt_s2',JSON.stringify(S));
+  loadEntries();
+  closeModal();
+  renderAll();
+  showToast('Settings saved');
+}
+
+// ── Nav ──
+function showTab(tab,btn) {
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Toast ──
+function showToast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+init();
+</script>
+</body>
+</html>
